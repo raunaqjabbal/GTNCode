@@ -12,7 +12,6 @@ To install virtusagtn:
 -  [x] Make Learner Flexible 
 -  [x] Make teachers flexible
 
-
 -  [ ] Restructure diffopt parameters
 -  [ ] Improve Step 1 & 2 of GTN
 
@@ -20,3 +19,7 @@ To install virtusagtn:
 -  [ ] General Code Conversion
 -  [ ] Add GPU support
 -  [ ] Outer loop
+-  [ ] Add tests
+-  [ ] Linting
+
+-  [ ] License
