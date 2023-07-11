@@ -81,9 +81,9 @@ class GTN:
         ) -> _pd.DataFrame:
         """ A function for training the GTN
         Parameters:
-            train_data: PyTorch DataLoader for outer loop training. Needs to be an iterable 
+            train_data: PyTorch DataLoader (or iterable) for outer loop training
             
-            test_data: PyTorch DataLoader for outer loop validation
+            test_data: PyTorch DataLoader (or iterable) for outer loop validation
              
             path: Path where trained Learners are stored  
             
@@ -324,7 +324,8 @@ class DataGTN(GTN):
             
             outer_opt_params (dict): Dictionary of ``inner_opt`` parameters and corresponding values
             
-            data (torch.utils.data.DataLoader): PyTorch Dataloader containing data that will be trained
+            data (torch.utils.data.DataLoader): PyTorch DataLoader (or iterable) containing synthetic data for Learner training
+
         
         Returns:
             None

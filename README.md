@@ -16,10 +16,9 @@ To install virtusagtn:
 -  [ ] Improve Step 1 & 2 of GTN
 
 -  [ ] Assert checking 
--  [ ] General Code Conversion
--  [ ] Add GPU support
--  [ ] Outer loop
+-  [x] General Code Conversion
+-  [x] Add GPU support
 -  [ ] Add tests
--  [ ] Linting
+-  [x] Linting
 
 -  [ ] License
