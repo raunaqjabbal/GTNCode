@@ -194,7 +194,7 @@ class GTN:
         self.override = [_nn.Parameter(Tensor(x).to(self.device)) if isinstance(x,list) 
                                 else _nn.Parameter(Tensor([x]).to(self.device))  for x in self.override_params.values()]
         
-        self.params_to_train.append(self.override) 
+        self.params_to_train += self.override 
         self.outer_optim = self.outer_opt(self.params_to_train, **self.outer_opt_params)
         
         samplemodel = _deepcopy(self.learnerlist[0]).to(self.device)
@@ -239,7 +239,7 @@ class TeacherGTN(GTN):
         #   teacher = _nn.DataParallel(teacher, device_ids=list(range(_torch.cuda.device_count())))
         
         """ Prepares flow of data and optimizer for Teacher GTN learning
-            Calls parent class function for initializing optimizers 
+            Calls parent class function ``compileoptimizer()`` for initializing optimizers 
         Parameters:
             teacher (torch.nn.Module): Teacher that takes in ``noise`` and outputs data that will be used by Learners
             
@@ -312,7 +312,7 @@ class DataGTN(GTN):
         outer_opt_params: _typing.Dict[str,_typing.Any] = {'lr':0.01, 'betas': (0.9,0.9)},
         ):
         """ Initializes parameters for Data GTN learning
-            Calls parent class function for initializing optimizers 
+            Calls parent class function ``compileoptimizer()`` for initializing optimizers 
         Parameters:
             inner_opt (_torch.optim): Reference to an optimizer for inner loop training
             
