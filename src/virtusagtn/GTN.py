@@ -4,15 +4,15 @@ import torch.optim as _optim
 from torch import Tensor
 
 import time as _time
-import pandas as _pd
+import pandas as _pd            # type: ignore
 import os as _os
 from copy import deepcopy as _deepcopy
 import numpy as _np
 import gc as _gc
 
 from .utils import _diffopt_state_dict, _divide_chunks, _imshow, _cycle
-import higher as _higher
-from koila import lazy as _lazy
+import higher as _higher        # type: ignore
+from koila import lazy as _lazy # type: ignore
 
 import typing as _typing
 
@@ -63,17 +63,19 @@ class GTN:
         
         self.batches = list(_divide_chunks(_np.arange(inner_loop_iterations), self.batch_size))
         
-        self.params_to_train=[]
-        self.override = None
-        self.override_params = None
-        self.outer_opt = None
-        self.outer_opt_params = None
-        self.inner_opt = None
-        self.inner_opt_params = None
+        self.params_to_train: _typing.List[_torch.Any] 
+        self.override: _typing.List[_typing.Any]
+        self.override_params: _typing.Dict[str,_typing.Any]
+        self.outer_opt: _typing.Callable[[_typing.Any],_torch.optim.Optimizer] # Reference to an optimizer
+        self.outer_opt_params: _typing.Optional[_typing.Dict[str,_typing.Any]]
+        self.inner_opt: _typing.Callable[[_typing.Any],_torch.optim.Optimizer] # Reference to an optimizer
+        self.inner_opt_params: _typing.Optional[_typing.Dict[str,_typing.Any]]
+        
+        self.noise_size: int
         
     def train(self, 
-        train_data: _typing.Iterable[_torch.Tensor], 
-        test_data: _typing.Iterable[_torch.Tensor],
+        train_loader: _typing.Collection[_torch.Tensor], 
+        test_loader: _typing.Collection[_torch.Tensor],
         path: str = './gtn',
         epochs: int = 3
         ) -> _pd.DataFrame:
@@ -92,9 +94,9 @@ class GTN:
         self.epochs = epochs
         self.path = path
 
-        self.steps_per_epoch = len(train_data)
-        self.train_loader = iter(_cycle(train_data))
-        self.test_loader  = iter(_cycle(test_data)) 
+        self.steps_per_epoch = len(train_loader)
+        self.train_loader = iter(_cycle(train_loader))
+        self.test_loader  = iter(_cycle(test_loader)) 
 
         
         gtn = _pd.DataFrame(columns= ('Path','Inner Loss','Inner Accuracy','Train Loss','Train Accuracy','Test Loss','Test Accuracy'))
@@ -105,7 +107,7 @@ class GTN:
         for it in range(len(self.learnerlist)):
             learner = _deepcopy(self.learnerlist[it]).to(self.device)
             inner_optim = self.inner_opt(learner.parameters(), **self.inner_opt_params )
-            metrics={'Inner Loss':[],'Inner Accuracy':[],'Train Loss':[],'Train Accuracy':[],'Test Loss':[],'Test Accuracy':[]}
+            metrics: _typing.Dict[str,_typing.Any] = {'Inner Loss':[],'Inner Accuracy':[],'Train Loss':[],'Train Accuracy':[],'Test Loss':[],'Test Accuracy':[]}
 
             for epoch in range(self.epochs):
                 
@@ -175,8 +177,7 @@ class GTN:
             if (it + 1) % self.plot_steps == 0:
                 _imshow(train_data)    
 
-
-        del train_loss, val_loss, test_loss, train_data, val_data, test_data, learner, inner_optim
+        del train_loss, inner_loss, test_loss, train_data, inner_data, test_data, learner, inner_optim
         _gc.collect()
         _torch.cuda.empty_cache()
 
@@ -186,13 +187,14 @@ class GTN:
 
         print("\n\nTotal Time Taken: ",now-then, "\t Average Time: ", (now-then)/len(self.learnerlist))
     
-    def compile(self) -> None:
+    def compileoptimizer(self) -> None:
         """ Compiles the outer loop optimizer reference ``outer_opt``
         """
         
         self.override = [_nn.Parameter(Tensor(x).to(self.device)) if isinstance(x,list) 
-                                else _nn.Parameter(Tensor([x]).to(self.device))  for x in self.override_params.values()]     
-        self.params_to_train += self.override
+                                else _nn.Parameter(Tensor([x]).to(self.device))  for x in self.override_params.values()]
+        
+        self.params_to_train.append(self.override) 
         self.outer_optim = self.outer_opt(self.params_to_train, **self.outer_opt_params)
         
         samplemodel = _deepcopy(self.learnerlist[0]).to(self.device)
@@ -207,7 +209,7 @@ class GTN:
         # _gc.collect()
         # _torch.cuda.empty_cache()
     
-    def get_innerloop_data(self, step) -> None:
+    def get_innerloop_data(self, step) -> _typing.Tuple[_torch.Tensor, _torch.Tensor]:
         """ Function is overriden by base class that provides data to the Learner for inner loop training
         Parameters:
             None
@@ -215,7 +217,7 @@ class GTN:
         Returns:
             None
         """
-        pass
+        return (None, None)
         
 class TeacherGTN(GTN):
     """ Implements a GTN with a Teacher model 
@@ -223,13 +225,11 @@ class TeacherGTN(GTN):
     def compile(self, 
         teacher: _torch.nn.Module,
         
-        inner_opt: _torch.optim.Optimizer = _torch.optim.SGD, 
-        inner_opt_params: _typing.Optional[_typing.Dict[str,_typing.Any]] = {'lr':0.01}, 
-        
-        override_params: _typing.Optional[_typing.Dict[str,_typing.Any]] = {'lr': 0.02, 'momentum':0.9}, 
-        
-        outer_opt: _torch.optim.Optimizer = _torch.optim.Adam, 
-        outer_opt_params: _typing.Optional[_typing.Dict[str,_typing.Any]] = {'lr':0.01, 'betas': (0.9,0.9)},
+        inner_opt: _typing.Callable[[_typing.Any],_torch.optim.Optimizer] = _torch.optim.SGD, 
+        inner_opt_params: _typing.Dict[str,_typing.Any] = {'lr':0.01}, 
+        override_params: _typing.Dict[str,_typing.Any] = {'lr': 0.02, 'momentum':0.9}, 
+        outer_opt: _typing.Callable[ [_typing.Any],_torch.optim.Optimizer] = _torch.optim.Adam, 
+        outer_opt_params: _typing.Dict[str,_typing.Any] = {'lr':0.01, 'betas': (0.9,0.9)},
         
         use_curriculum: bool = True, 
         noise_size: _typing.Optional[int] = 128, 
@@ -285,9 +285,9 @@ class TeacherGTN(GTN):
         self.teacher_labels = _torch.arange(self.inner_batch_size) % self.num_classes                       
         self.one_hot = _nn.functional.one_hot(self.teacher_labels, self.num_classes)
         
-        super().compile()
+        super().compileoptimizer()
 
-    def get_innerloop_data(self, step):
+    def get_innerloop_data(self, step) -> _typing.Tuple[_torch.Tensor, _torch.Tensor]:
         """ Called during training to feed data to Learner 
         Parameters:
             step (int): current inner loop iteration number
@@ -304,14 +304,12 @@ class TeacherGTN(GTN):
    
 class DataGTN(GTN):
     def compile(self, 
-        data: _typing.Iterable[_torch.Tensor],
-        inner_opt: _torch.optim.Optimizer = _torch.optim.SGD, 
-        inner_opt_params: _typing.Optional[_typing.Dict[str,_typing.Any]] = {'lr':0.01}, 
-        
-        override_params: _typing.Optional[_typing.Dict[str,_typing.Any]] = {'lr': 0.02, 'momentum':0.9}, 
-        
-        outer_opt: _torch.optim.Optimizer = _torch.optim.Adam, 
-        outer_opt_params: _typing.Optional[_typing.Dict[str,_typing.Any]] = {'lr':0.01, 'betas': (0.9,0.9)},
+        data: _typing.Collection[_torch.Tensor],
+        inner_opt: _typing.Callable[[_typing.Any],_torch.optim.Optimizer] = _torch.optim.SGD, 
+        inner_opt_params: _typing.Dict[str,_typing.Any] = {'lr':0.01}, 
+        override_params: _typing.Dict[str,_typing.Any] = {'lr': 0.02, 'momentum':0.9}, 
+        outer_opt: _typing.Callable[ [_typing.Any],_torch.optim.Optimizer] = _torch.optim.Adam, 
+        outer_opt_params: _typing.Dict[str,_typing.Any] = {'lr':0.01, 'betas': (0.9,0.9)},
         ):
         """ Initializes parameters for Data GTN learning
             Calls parent class function for initializing optimizers 
@@ -353,9 +351,9 @@ class DataGTN(GTN):
         self.curriculum_data = _nn.Parameter(_torch.stack((curriculum_data),0).detach(),requires_grad=True)
         self.curriculum_labels = _torch.stack(curriculum_labels,0).detach()
         self.params_to_train += [self.curriculum_data]
-        super().compile()
+        super().compileoptimizer()
 
-    def get_innerloop_data(self, step):
+    def get_innerloop_data(self, step) -> _typing.Tuple[_torch.Tensor,_torch.Tensor]:
         """ Called during training to feed data to Learner 
         Parameters:
             step (int): current inner loop iteration number

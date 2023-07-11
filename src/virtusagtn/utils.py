@@ -3,8 +3,8 @@ import os as _os
 import numpy as _np
 import torch as _torch
 from collections import defaultdict as _defaultdict
-import matplotlib.pyplot as _plt
-from torchvision.utils import make_grid as _make_grid
+import matplotlib.pyplot as _plt                        # type: ignore
+from torchvision.utils import make_grid as _make_grid   # type: ignore
 
 def _seed_everything(seed=1234):
     ''' Sets seed for reproducibility.'''
