@@ -1,6 +1,6 @@
 import torch as _torch
 from torch import nn as _nn
-from utils import _weights_init
+from .utils import _weights_init
 from torch.nn.utils import weight_norm as _weight_norm
 import numpy as _np
 import typing as _typing

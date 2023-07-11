@@ -10,7 +10,7 @@ from copy import deepcopy as _deepcopy
 import numpy as _np
 import gc as _gc
 
-from utils import _diffopt_state_dict, _divide_chunks, _imshow, _cycle
+from .utils import _diffopt_state_dict, _divide_chunks, _imshow, _cycle
 import higher as _higher
 from koila import lazy as _lazy
 
