@@ -1,8 +1,6 @@
-higher
-koila
-matplotlib
-numpy
-pandas
-setuptools
-typing
-torch
+higher==0.2.1
+koila==0.1.1
+matplotlib==3.7.2
+numpy==1.25.0
+pandas==2.0.3
+torch==2.0.1
