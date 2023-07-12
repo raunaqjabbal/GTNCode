@@ -54,11 +54,11 @@ class GTN:
         self.inner_loop_iterations: int
         self.plot_steps = plot_steps
         self.batch_size = batch_size
-        for i in metrics.children():
-            i.to(device)
         
         self.metrics = metrics.to(self.device)
         
+        for i in self.metrics.children():
+            i.to(device)
         
         self.params_to_train: _typing.List[_torch.Any] 
         self._override: _typing.List[_typing.Any]
@@ -149,12 +149,12 @@ class GTN:
                     _test_loss, _test_metrics = self.train_on_batch(_test_data, _test_target, _learner, _test_metrics)
                 
                     
-                    _info["Inner Metrics"].append(_inner_metrics.compute())
-                    _info["Inner Loss"].append(_np.round(_inner_loss.item(),3))
-                    _info["Train Metrics"].append(_train_metrics.compute())
-                    _info["Train Loss"].append(_np.round(_train_loss.item(),3))
-                    _info["Test Metrics"].append(_test_metrics.compute())
-                    _info["Test Loss"].append(_np.round(_test_loss.item(),3))
+                    _info['Inner Metrics'].append(_inner_metrics.compute())
+                    _info['Inner Loss'].append(_np.round(_inner_loss.item(),3))
+                    _info['Train Metrics'].append(_train_metrics.compute())
+                    _info['Train Loss'].append(_np.round(_train_loss.item(),3))
+                    _info['Test Metrics'].append(_test_metrics.compute())
+                    _info['Test Loss'].append(_np.round(_test_loss.item(),3))
                     _inner_metrics.reset()
                     _train_metrics.reset()
                     _test_metrics.reset()
