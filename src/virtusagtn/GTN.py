@@ -162,11 +162,11 @@ class GTN:
                     
                     print("E:",it//self._steps_per_epoch, 
                                 "\tB:",it%self._steps_per_epoch, 
-                                "\t Inner Metrics: %5.2f" % _info['Inner Metrics'], "%",
+                                "\t Inner Metrics: ",  _info['Inner Metrics'],
                                 "  Loss: %.3f" % _info['Inner Loss'],
-                                " \t Train Metrics: %5.2f" % _info['Train Metrics'], "%",
+                                " \t Train Metrics: ", _info['Train Metrics'],
                                 "  Loss: %.3f" % _info['Train Loss'], 
-                                "   \t Test Metrics: %5.2f" % _info['Test Metrics'], "%",
+                                "   \t Test Metrics: ", _info['Test Metrics'],
                                 "  Loss: %.3f" % _info['Test Loss'], 
                                 "  \tIT: ",(it+1),
                                 sep=""
