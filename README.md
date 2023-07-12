@@ -21,12 +21,13 @@ pip install git+https://github.com/raunaqjabbal/GTNCode.git
 -  [x] Linting
 -  [x] Remove ``inner_loop_iterations''
 -  [x] Restructure optimizer compile
-
-## To-Do:
+-  [x] Add support for metrics
 -  [x] Give clarification on internal variables
 -  [x] shorten train code
+
+## To-Do:
+-  [ ] verify techer code
 -  [x] Restructure diffopt parameters
--  [ ] Add support for metrics
 -  [x] Improve Step 1 & 2 of GTN
 
 ## Other:
