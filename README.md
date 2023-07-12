@@ -23,5 +23,5 @@ To install virtusagtn:
 -  [ ] Add support for metrics
 -  [ ] Remove ``inner_loop_iterations''
 -  [ ] Add tests
-
+-  [ ] Get curriculum 
 -  [ ] License

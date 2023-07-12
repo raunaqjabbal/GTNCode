@@ -91,6 +91,8 @@ class GTN:
         Returns:
             history: Pandas DataFrame consisting of the history and paths to learners 
         """
+        self.compileoptimizer()
+        
         self.epochs = epochs
         self.path = path
 
@@ -176,7 +178,8 @@ class GTN:
             gtn.loc[it] = metrics
             if (it + 1) % self.plot_steps == 0:
                 _imshow(train_data)    
-
+            print()
+            
         del train_loss, inner_loss, test_loss, train_data, inner_data, test_data, learner, inner_optim
         _gc.collect()
         _torch.cuda.empty_cache()
@@ -285,7 +288,7 @@ class TeacherGTN(GTN):
         self.teacher_labels = _torch.arange(self.inner_batch_size) % self.num_classes                       
         self.one_hot = _nn.functional.one_hot(self.teacher_labels, self.num_classes)
         
-        super().compileoptimizer()
+        # super().compileoptimizer()
 
     def get_innerloop_data(self, step) -> _typing.Tuple[_torch.Tensor, _torch.Tensor]:
         """ Called during training to feed data to Learner 
@@ -352,7 +355,8 @@ class DataGTN(GTN):
         self.curriculum_data = _nn.Parameter(_torch.stack((curriculum_data),0).detach(),requires_grad=True)
         self.curriculum_labels = _torch.stack(curriculum_labels,0).detach()
         self.params_to_train += [self.curriculum_data]
-        super().compileoptimizer()
+        
+        # super().compileoptimizer()
 
     def get_innerloop_data(self, step) -> _typing.Tuple[_torch.Tensor,_torch.Tensor]:
         """ Called during training to feed data to Learner 

@@ -62,7 +62,7 @@ def _imshow(images,num_classes=10, r=False):
     '''  
     images = images.detach().cpu()
     images = (images + 1) / 2 
-    image_grid = _make_grid(images, nrow=num_classes)
+    image_grid = _make_grid(images, nrow= 2 * num_classes)
     _plt.figure(figsize=(20,12))
     _plt.imshow(image_grid.permute(1, 2, 0),cmap='gray')
     _plt.axis("off")
