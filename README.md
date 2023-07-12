@@ -21,9 +21,6 @@ To install virtusagtn:
 -  [ ] Improve Step 1 & 2 of GTN
 -  [ ] Add support for metrics
 -  [ ] Remove ``inner_loop_iterations''
-
-
--  [ ] Assert checking 
 -  [ ] Add tests
 
 -  [ ] License
