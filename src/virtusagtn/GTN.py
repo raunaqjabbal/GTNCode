@@ -186,9 +186,32 @@ class GTN:
 
         print("\n\nTotal Time Taken: ",now-then, "\t Average Time: ", (now-then)/len(self.learnerlist))
     
-    def compileoptimizer(self) -> None:
+    def compileoptimizer(self,
+        inner_opt: _typing.Callable[[_typing.Any],_torch.optim.Optimizer] = _torch.optim.SGD, 
+        inner_opt_params: _typing.Dict[str,_typing.Any] = {'lr':0.01}, 
+        override_params: _typing.Dict[str,_typing.Any] = {'lr': 0.02, 'momentum':0.9}, 
+        outer_opt: _typing.Callable[ [_typing.Any],_torch.optim.Optimizer] = _torch.optim.Adam, 
+        outer_opt_params: _typing.Dict[str,_typing.Any] = {'lr':0.01, 'betas': (0.9,0.9)},
+        ) -> None:
         """ Compiles the outer loop optimizer reference ``outer_opt``
+        Parameters:     
+            inner_opt: Reference to an optimizer for inner loop training
+            
+            inner_opt_params: Dictionary of ``inner_opt`` parameters and corresponding values
+            
+            override_params: Dictionary of ``inner_opt`` parameters that need to be trained
+            
+            outer_opt: Reference to an optimizer for outer loop meta learning
+            
+            outer_opt_params: Dictionary of ``inner_opt`` parameters and corresponding values
         """
+        self.override_params = override_params
+        self.outer_opt = outer_opt
+        self.outer_opt_params = outer_opt_params
+        self.inner_opt = inner_opt
+        self.inner_opt_params = inner_opt_params
+        
+        
         
         self.override = [_nn.Parameter(Tensor(x).to(self.device)) if isinstance(x,list) 
                                 else _nn.Parameter(Tensor([x]).to(self.device))  for x in self.override_params.values()]
@@ -223,13 +246,6 @@ class TeacherGTN(GTN):
     """
     def compile(self, 
         teacher: _torch.nn.Module,
-        
-        inner_opt: _typing.Callable[[_typing.Any],_torch.optim.Optimizer] = _torch.optim.SGD, 
-        inner_opt_params: _typing.Dict[str,_typing.Any] = {'lr':0.01}, 
-        override_params: _typing.Dict[str,_typing.Any] = {'lr': 0.02, 'momentum':0.9}, 
-        outer_opt: _typing.Callable[ [_typing.Any],_torch.optim.Optimizer] = _torch.optim.Adam, 
-        outer_opt_params: _typing.Dict[str,_typing.Any] = {'lr':0.01, 'betas': (0.9,0.9)},
-        
         inner_loop_iterations:int = 32,
         use_curriculum: bool = True, 
         noise_size: _typing.Optional[int] = 128, 
@@ -242,30 +258,18 @@ class TeacherGTN(GTN):
         """ Prepares flow of data and optimizer for Teacher GTN learning
             Calls parent class function ``compileoptimizer()`` for initializing optimizers 
         Parameters:
-            teacher (torch.nn.Module): Teacher that takes in ``noise`` and outputs data that will be used by Learners
+            teacher: Teacher that takes in ``noise`` and outputs data that will be used by Learners
             
-            use_curriculum (bool): If ``True``, use a trainable curriculum, else generate random data for the Teacher 
+            inner_loop_iterations: Number of inner loop iterations 
             
-            noise_size (int): dim of noise that the ``teacher`` will accept
+            use_curriculum: If ``True``, use a trainable curriculum, else generate random data for the Teacher 
             
-            inner_opt (_torch.optim): Reference to an optimizer for inner loop training
+            noise_size: dim of noise that the ``teacher`` will accept
             
-            inner_opt_params (dict): Dictionary of ``inner_opt`` parameters and corresponding values
-            
-            override_params (dict): Dictionary of ``inner_opt`` parameters that need to be trained
-            
-            outer_opt (_torch.optim): Reference to an optimizer for outer loop meta learning
-            
-            outer_opt_params (dict): Dictionary of ``inner_opt`` parameters and corresponding values
-        
+            teacher_noise: Directly provide teacher noise
         Returns:
             None
         """
-        self.override_params = override_params
-        self.outer_opt = outer_opt
-        self.outer_opt_params = outer_opt_params
-        self.inner_opt = inner_opt
-        self.inner_opt_params = inner_opt_params
         self.params_to_train=[]
         
         self.use_curriculum = use_curriculum
@@ -292,7 +296,7 @@ class TeacherGTN(GTN):
     def get_innerloop_data(self, step) -> _typing.Tuple[_torch.Tensor, _torch.Tensor]:
         """ Called during training to feed data to Learner 
         Parameters:
-            step (int): current inner loop iteration number
+            step: current inner loop iteration number
             
         Returns:
            Data and labels for training in a list 
@@ -307,37 +311,17 @@ class TeacherGTN(GTN):
 class DataGTN(GTN):
     def compile(self, 
         curriculum_loader: _typing.Collection[_torch.Tensor],
-        inner_opt: _typing.Callable[[_typing.Any],_torch.optim.Optimizer] = _torch.optim.SGD, 
-        inner_opt_params: _typing.Dict[str,_typing.Any] = {'lr':0.01}, 
-        override_params: _typing.Dict[str,_typing.Any] = {'lr': 0.02, 'momentum':0.9}, 
-        outer_opt: _typing.Callable[ [_typing.Any],_torch.optim.Optimizer] = _torch.optim.Adam, 
-        outer_opt_params: _typing.Dict[str,_typing.Any] = {'lr':0.01, 'betas': (0.9,0.9)},
         ):
         """ Initializes parameters for Data GTN learning
             Calls parent class function ``compileoptimizer()`` for initializing optimizers 
         Parameters:
-            inner_opt (_torch.optim): Reference to an optimizer for inner loop training
-            
-            inner_opt_params (dict): Dictionary of ``inner_opt`` parameters and corresponding values
-            
-            override_params (dict): Dictionary of ``inner_opt`` parameters that need to be trained
-            
-            outer_opt (_torch.optim): Reference to an optimizer for outer loop meta learning
-            
-            outer_opt_params (dict): Dictionary of ``inner_opt`` parameters and corresponding values
-            
-            data (torch.utils.data.DataLoader): PyTorch DataLoader (or iterable) containing synthetic data for Learner training
+            data: PyTorch DataLoader (or iterable) containing synthetic data for Learner training
 
         
         Returns:
             None
         """
         #   teacher = _nn.DataParallel(teacher, device_ids=list(range(_torch.cuda.device_count())))
-        self.override_params = override_params
-        self.outer_opt = outer_opt
-        self.outer_opt_params = outer_opt_params
-        self.inner_opt = inner_opt
-        self.inner_opt_params = inner_opt_params
         self.params_to_train=[]
         
         self.inner_loop_iterations = len(curriculum_loader)
@@ -360,7 +344,7 @@ class DataGTN(GTN):
     def get_innerloop_data(self, step) -> _typing.Tuple[_torch.Tensor,_torch.Tensor]:
         """ Called during training to feed data to Learner 
         Parameters:
-            step (int): current inner loop iteration number
+            step: current inner loop iteration number
             
         Returns:
            Data and labels for training in a list 
