@@ -92,7 +92,7 @@ class GTN:
     def _modify_metric(self, 
                        _kind: str, 
                        _metric: dict):
-            return { _kind+key: _np.round(value.item(),3) for key , value in _metric}
+        return { _kind+key: _np.round(value.item(),3) for key , value in _metric.items()}
         
     
     def train(self, 
