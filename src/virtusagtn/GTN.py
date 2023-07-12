@@ -137,35 +137,35 @@ class GTN:
                         learner.load_state_dict(flearner.state_dict())
                         inner_optim.load_state_dict(_diffopt_state_dict(diffopt))
                         
-            with _torch.no_grad():
-                learner.eval()
-                test_data, test_target = next(self.test_loader)
-                (test_data, test_target) = _lazy(test_data, test_target, batch=0)
-                test_data, test_target= test_data.to(self.device), test_target.to(self.device)
-                test_output = learner(test_data) 
-                test_loss = self.loss_fn(test_output, test_target)
-                test_pred = test_output.argmax(dim=1, keepdim=True)
-                test_accuracy = _np.round(test_pred.eq(test_target.view_as(test_pred)).sum().item() / len(test_target) * 100 ,2)
+                with _torch.no_grad():
+                    learner.eval()
+                    test_data, test_target = next(self.test_loader)
+                    (test_data, test_target) = _lazy(test_data, test_target, batch=0)
+                    test_data, test_target= test_data.to(self.device), test_target.to(self.device)
+                    test_output = learner(test_data) 
+                    test_loss = self.loss_fn(test_output, test_target)
+                    test_pred = test_output.argmax(dim=1, keepdim=True)
+                    test_accuracy = _np.round(test_pred.eq(test_target.view_as(test_pred)).sum().item() / len(test_target) * 100 ,2)
 
-                metrics["Inner Accuracy"].append(inner_accuracy)
-                metrics["Inner Loss"].append(_np.round(inner_loss.item(),3))
-                metrics["Train Accuracy"].append(train_accuracy)
-                metrics["Train Loss"].append(_np.round(train_loss.item(),3))
-                metrics["Test Accuracy"].append(test_accuracy)
-                metrics["Test Loss"].append(_np.round(test_loss.item(),3))
+                    metrics["Inner Accuracy"].append(inner_accuracy)
+                    metrics["Inner Loss"].append(_np.round(inner_loss.item(),3))
+                    metrics["Train Accuracy"].append(train_accuracy)
+                    metrics["Train Loss"].append(_np.round(train_loss.item(),3))
+                    metrics["Test Accuracy"].append(test_accuracy)
+                    metrics["Test Loss"].append(_np.round(test_loss.item(),3))
 
-            print("E:",it//self.steps_per_epoch, 
-                        "\tB:",it%self.steps_per_epoch, 
-                        "\t Inner Acc: %5.2f" % inner_accuracy, "%",
-                        "  Loss: %.3f" % _np.round(inner_loss.item(),3),
-                        " \t Train Acc: %5.2f" % train_accuracy, "%",
-                        "  Loss: %.3f" % _np.round(train_loss.item(),3), 
-                        "   \t Test Acc: %5.2f" % test_accuracy, "%",
-                        "  Loss: %.3f" % _np.round(test_loss.item(),3), 
-                        "  \tIT: ",(it+1),
-                        sep=""
-                        )
-                    
+                print("E:",it//self.steps_per_epoch, 
+                            "\tB:",it%self.steps_per_epoch, 
+                            "\t Inner Acc: %5.2f" % inner_accuracy, "%",
+                            "  Loss: %.3f" % _np.round(inner_loss.item(),3),
+                            " \t Train Acc: %5.2f" % train_accuracy, "%",
+                            "  Loss: %.3f" % _np.round(train_loss.item(),3), 
+                            "   \t Test Acc: %5.2f" % test_accuracy, "%",
+                            "  Loss: %.3f" % _np.round(test_loss.item(),3), 
+                            "  \tIT: ",(it+1),
+                            sep=""
+                            )
+                        
             # print()
             inner_optim.zero_grad()
             checkpoint = { 'model': learner, 'optimizer': inner_optim.state_dict() }
@@ -290,8 +290,7 @@ class TeacherGTN(GTN):
         self.teacher_labels = _torch.arange(self.inner_batch_size) % self.num_classes                       
         self.one_hot = _nn.functional.one_hot(self.teacher_labels, self.num_classes)
         
-        # super().compileoptimizer()
-
+ 
     def get_innerloop_data(self, step) -> _typing.Tuple[_torch.Tensor, _torch.Tensor]:
         """ Called during training to feed data to Learner 
         Parameters:
@@ -338,8 +337,6 @@ class DataGTN(GTN):
         self.curriculum_labels = _torch.stack(curriculum_labels,0).detach()
         self.params_to_train += [self.curriculum_data]
         
-        # super().compileoptimizer()
-
     def get_innerloop_data(self, step) -> _typing.Tuple[_torch.Tensor,_torch.Tensor]:
         """ Called during training to feed data to Learner 
         Parameters:
