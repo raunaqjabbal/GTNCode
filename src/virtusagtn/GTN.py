@@ -46,8 +46,6 @@ class GTN:
         """
         
         self.device = device
-
-        
         self.learnerlist = learnerlist
         self.loss_fn = loss_fn
         
@@ -59,7 +57,7 @@ class GTN:
         
         
         self.params_to_train: _typing.List[_torch.Any] 
-        self.override: _typing.List[_typing.Any]
+        self._override: _typing.List[_typing.Any]
         self.override_params: _typing.Dict[str,_typing.Any]
         self.outer_opt: _typing.Callable[[_typing.Any],_torch.optim.Optimizer] # Reference to an optimizer
         self.outer_opt_params: _typing.Optional[_typing.Dict[str,_typing.Any]]
@@ -68,6 +66,19 @@ class GTN:
         
         self.noise_size: int
         
+    def train_on_batch(self, 
+        data, 
+        labels, 
+        model):
+        data, target = data.to(self.device), labels.to(self.device)
+        output = model(data)
+        pred = output.argmax(dim=1, keepdim=True) 
+        accuracy = _np.round(pred.eq(target.view_as(pred)).sum().item() / len(target) * 100, 2)
+        inner_loss = self.loss_fn(output, target) 
+        return inner_loss, accuracy
+    
+        
+    
     def train(self, 
         train_loader: _typing.Collection[_torch.Tensor], 
         test_loader: _typing.Collection[_torch.Tensor],
@@ -86,12 +97,12 @@ class GTN:
         Returns:
             history: Pandas DataFrame consisting of the history and paths to learners 
         """
-        self.batches = list(_divide_chunks(_np.arange(self.inner_loop_iterations), self.batch_size))
+        self._batches = list(_divide_chunks(_np.arange(self.inner_loop_iterations), self.batch_size))
 
         self.epochs = epochs
         self.path = path
 
-        self.steps_per_epoch = len(train_loader)
+        self._steps_per_epoch = len(train_loader)
         self.train_loader = iter(_cycle(train_loader))
         self.test_loader  = iter(_cycle(test_loader)) 
 
@@ -100,87 +111,75 @@ class GTN:
         if not _os.path.exists(self.path):
             _os.makedirs(self.path)
 
-        then = _time.time()
+        _then = _time.time()
         for it in range(len(self.learnerlist)):
-            learner = _deepcopy(self.learnerlist[it]).to(self.device)
-            inner_optim = self.inner_opt(learner.parameters(), **self.inner_opt_params )
-            metrics: _typing.Dict[str,_typing.Any] = {'Inner Loss':[],'Inner Accuracy':[],'Train Loss':[],'Train Accuracy':[],'Test Loss':[],'Test Accuracy':[]}
+            _learner = _deepcopy(self.learnerlist[it]).to(self.device)
+            _inner_optim = self.inner_opt(_learner.parameters(), **self.inner_opt_params )
+            _metrics: _typing.Dict[str,_typing.Any] = {'Inner Loss':[],'Inner Accuracy':[],'Train Loss':[],'Train Accuracy':[],'Test Loss':[],'Test Accuracy':[]}
 
-            for epoch in range(self.epochs):
+            for _ in range(self.epochs):
                 
-                for batchset in self.batches:
+                for _batchset in self._batches:
                     self.outer_optim.zero_grad(set_to_none=True)
-                    train_data, train_target = next(self.train_loader)
+                    _train_data, _train_target = next(self.train_loader)
                         
-                    with _higher.innerloop_ctx(learner, inner_optim, override = {key: [value] for key,value in zip(list(self.override_params.keys()),self.override)} ) as (flearner, diffopt):
+                    with _higher.innerloop_ctx(_learner, _inner_optim, override = {key: [value] for key,value in zip(list(self.override_params.keys()),self._override)} ) as (_flearner, _diffopt):
                         
-                        for step in batchset:
-                            inner_data, inner_target = self.get_innerloop_data(step)
-                            inner_data, inner_target= inner_data.to(self.device), inner_target.to(self.device)
-                            inner_output = flearner(inner_data)
-                            inner_loss = self.loss_fn(inner_output, inner_target) 
-                            inner_pred = inner_output.argmax(dim=1, keepdim=True) 
-                            inner_accuracy = _np.round(inner_pred.eq(inner_target.view_as(inner_pred)).sum().item() / len(inner_target) * 100, 2)
-                            diffopt.step(inner_loss)
+                        for step in _batchset:
+                            _inner_data, _inner_target = self.get_innerloop_data(step)
+                            _inner_loss, _inner_accuracy = self.train_on_batch(_inner_data, _inner_target, _flearner)
+                            _diffopt.step(_inner_loss)
                         
-                        train_data, train_target= train_data.to(self.device), train_target.to(self.device)
-                        train_output = flearner(train_data)
-                        train_loss = self.loss_fn(train_output, train_target)
-                        train_pred = train_output.argmax(dim=1, keepdim=True)
-                        train_accuracy = _np.round(train_pred.eq(train_target.view_as(train_pred)).sum().item() / len(train_target) * 100, 2)
-                        
-                        train_loss.backward()
+                        _train_loss, _train_accuracy = self.train_on_batch(_train_data, _train_target, _flearner)
+                        _train_loss.backward()
                         self.outer_optim.step()
 
-                        learner.load_state_dict(flearner.state_dict())
-                        inner_optim.load_state_dict(_diffopt_state_dict(diffopt))
+                        _learner.load_state_dict(_flearner.state_dict())
+                        _inner_optim.load_state_dict(_diffopt_state_dict(_diffopt))
                         
                 with _torch.no_grad():
-                    learner.eval()
-                    test_data, test_target = next(self.test_loader)
-                    test_data, test_target= test_data.to(self.device), test_target.to(self.device)
-                    test_output = learner(test_data) 
-                    test_loss = self.loss_fn(test_output, test_target)
-                    test_pred = test_output.argmax(dim=1, keepdim=True)
-                    test_accuracy = _np.round(test_pred.eq(test_target.view_as(test_pred)).sum().item() / len(test_target) * 100 ,2)
+                    _learner.eval()
+                    _test_data, _test_target = next(self.test_loader)
+                    _test_loss, _test_accuracy = self.train_on_batch(_test_data, _test_target, _learner)
 
-                    metrics["Inner Accuracy"].append(inner_accuracy)
-                    metrics["Inner Loss"].append(_np.round(inner_loss.item(),3))
-                    metrics["Train Accuracy"].append(train_accuracy)
-                    metrics["Train Loss"].append(_np.round(train_loss.item(),3))
-                    metrics["Test Accuracy"].append(test_accuracy)
-                    metrics["Test Loss"].append(_np.round(test_loss.item(),3))
+                    
+                    _metrics["Inner Accuracy"].append(_inner_accuracy)
+                    _metrics["Inner Loss"].append(_np.round(_inner_loss.item(),3))
+                    _metrics["Train Accuracy"].append(_train_accuracy)
+                    _metrics["Train Loss"].append(_np.round(_train_loss.item(),3))
+                    _metrics["Test Accuracy"].append(_test_accuracy)
+                    _metrics["Test Loss"].append(_np.round(_test_loss.item(),3))
 
-                print("E:",it//self.steps_per_epoch, 
-                            "\tB:",it%self.steps_per_epoch, 
-                            "\t Inner Acc: %5.2f" % inner_accuracy, "%",
-                            "  Loss: %.3f" % _np.round(inner_loss.item(),3),
-                            " \t Train Acc: %5.2f" % train_accuracy, "%",
-                            "  Loss: %.3f" % _np.round(train_loss.item(),3), 
-                            "   \t Test Acc: %5.2f" % test_accuracy, "%",
-                            "  Loss: %.3f" % _np.round(test_loss.item(),3), 
+                print("E:",it//self._steps_per_epoch, 
+                            "\tB:",it%self._steps_per_epoch, 
+                            "\t Inner Acc: %5.2f" % _inner_accuracy, "%",
+                            "  Loss: %.3f" % _np.round(_inner_loss.item(),3),
+                            " \t Train Acc: %5.2f" % _train_accuracy, "%",
+                            "  Loss: %.3f" % _np.round(_train_loss.item(),3), 
+                            "   \t Test Acc: %5.2f" % _test_accuracy, "%",
+                            "  Loss: %.3f" % _np.round(_test_loss.item(),3), 
                             "  \tIT: ",(it+1),
                             sep=""
                             )
                         
             # print()
-            inner_optim.zero_grad()
-            checkpoint = { 'model': learner, 'optimizer': inner_optim.state_dict() }
-            metrics["Path"] = f'{self.path}/{it}.pth'
-            _torch.save(checkpoint, metrics['Path'])
-            gtn.loc[it] = metrics
+            _inner_optim.zero_grad()
+            _checkpoint = { 'model': _learner, 'optimizer': _inner_optim.state_dict() }
+            _metrics["Path"] = f'{self.path}/{it}.pth'
+            _torch.save(_checkpoint, _metrics['Path'])
+            gtn.loc[it] = _metrics
             if (it + 1) % self.plot_steps == 0:
-                _imshow(train_data)    
+                _imshow(_train_data)    
             
-        del train_loss, inner_loss, test_loss, train_data, inner_data, test_data, learner, inner_optim
+        del _train_loss, _inner_loss, _test_loss, _train_data, _inner_data, _test_data, _learner, _inner_optim
         _gc.collect()
         _torch.cuda.empty_cache()
 
 
-        now = _time.time()
+        _now = _time.time()
         # curriculum_data.requires_grads=False
 
-        print("\n\nTotal Time Taken: ",now-then, "\t Average Time: ", (now-then)/len(self.learnerlist))
+        print("\n\nTotal Time Taken: ",_now-_then, "\t Average Time: ", (_now-_then)/len(self.learnerlist))
     
     def compileoptimizer(self,
         inner_opt: _typing.Callable[[_typing.Any],_torch.optim.Optimizer] = _torch.optim.SGD, 
@@ -209,24 +208,13 @@ class GTN:
         
         
         
-        self.override = [_nn.Parameter(Tensor(x).to(self.device)) if isinstance(x,list) 
+        self._override = [_nn.Parameter(Tensor(x).to(self.device)) if isinstance(x,list) 
                                 else _nn.Parameter(Tensor([x]).to(self.device))  for x in self.override_params.values()]
         
-        self.params_to_train += self.override 
+        self.params_to_train += self._override 
         self.outer_optim = self.outer_opt(self.params_to_train, **self.outer_opt_params)
         
-        samplemodel = _deepcopy(self.learnerlist[0]).to(self.device)
         
-        inner_optim = self.inner_opt(samplemodel.parameters(), **self.inner_opt_params)
-        # print(inner_optim)
-        # with _higher.innerloop_ctx(_deepcopy(self.learnerlist[0]), inner_optim, 
-        #     override = {key: [value] for key,value in zip(list(self.override_params.keys()),self.override)} ) as (flearner, diffopt):
-        #     None
-        
-        # del inner_optim, samplemodel, flearner, diffopt
-        # _gc.collect()
-        # _torch.cuda.empty_cache()
-    
     def get_innerloop_data(self, step) -> _typing.Tuple[_torch.Tensor, _torch.Tensor]:
         """ Function is overriden by base class that provides data to the Learner for inner loop training
         Parameters:

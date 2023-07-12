@@ -23,9 +23,12 @@ pip install git+https://github.com/raunaqjabbal/GTNCode.git
 -  [x] Restructure optimizer compile
 
 ## To-Do:
--  [ ] shorten train code
+-  [x] Give clarification on internal variables
+-  [x] shorten train code
 -  [x] Restructure diffopt parameters
--  [x] Improve Step 1 & 2 of GTN
 -  [ ] Add support for metrics
+-  [x] Improve Step 1 & 2 of GTN
+
+## Other:
 -  [ ] Add tests
 -  [ ] License
