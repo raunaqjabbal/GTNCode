@@ -153,19 +153,19 @@ class GTN:
                     _test_data, _test_target = next(self.test_loader)
                     _test_loss, _test_metrics = self.train_on_batch(_test_data, _test_target, _learner, _test_metrics)
                 
-                    _innermetrics = self._modify_metric("Inner", _inner_metrics.compute()[0])
-                    _trainmetrics = self._modify_metric("Train", _inner_metrics.compute()[0])
-                    _testmetrics = self._modify_metric("Train", _inner_metrics.compute()[0])
+                    _innermetrics = self._modify_metric("Inner", _inner_metrics.compute())
+                    _trainmetrics = self._modify_metric("Train", _train_metrics.compute())
+                    _testmetrics = self._modify_metric("Train", _test_metrics.compute())
                     
                     for m in _innermetrics.keys():
                         _info[m].append(_innermetrics[m])
-                    _info['Inner Loss'].append(_np.round(_inner_loss.item(),3))
+                    _info['InnerLoss'].append(_np.round(_inner_loss.item(),3))
                     for m in _trainmetrics.keys():
                         _info[m].append(_trainmetrics[m])
-                    _info['Train Loss'].append(_np.round(_train_loss.item(),3))
+                    _info['TrainLoss'].append(_np.round(_train_loss.item(),3))
                     for m in _testmetrics.keys():
                         _info[m].append(_testmetrics[m])
-                    _info['Test Loss'].append(_np.round(_test_loss.item(),3))
+                    _info['TestLoss'].append(_np.round(_test_loss.item(),3))
                     _inner_metrics.reset()
                     _train_metrics.reset()
                     _test_metrics.reset()
