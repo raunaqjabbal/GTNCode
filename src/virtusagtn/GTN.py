@@ -87,7 +87,6 @@ class GTN:
         Returns:
             history: Pandas DataFrame consisting of the history and paths to learners 
         """
-        self.compileoptimizer()
         self.batches = list(_divide_chunks(_np.arange(self.inner_loop_iterations), self.batch_size))
 
         self.epochs = epochs
