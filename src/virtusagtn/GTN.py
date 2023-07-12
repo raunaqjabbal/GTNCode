@@ -12,7 +12,6 @@ import gc as _gc
 
 from .utils import _diffopt_state_dict, _divide_chunks, _imshow, _cycle
 import higher as _higher        # type: ignore
-from koila import lazy as _lazy # type: ignore
 
 import typing as _typing
 
@@ -112,8 +111,6 @@ class GTN:
                 for batchset in self.batches:
                     self.outer_optim.zero_grad(set_to_none=True)
                     train_data, train_target = next(self.train_loader)
-                    (train_data, train_target) = _lazy(train_data, train_target, batch=0)
-                    train_data, train_target= train_data.to(self.device), train_target.to(self.device)
                         
                     with _higher.innerloop_ctx(learner, inner_optim, override = {key: [value] for key,value in zip(list(self.override_params.keys()),self.override)} ) as (flearner, diffopt):
                         
@@ -125,7 +122,8 @@ class GTN:
                             inner_pred = inner_output.argmax(dim=1, keepdim=True) 
                             inner_accuracy = _np.round(inner_pred.eq(inner_target.view_as(inner_pred)).sum().item() / len(inner_target) * 100, 2)
                             diffopt.step(inner_loss)
-                    
+                        
+                        train_data, train_target= train_data.to(self.device), train_target.to(self.device)
                         train_output = flearner(train_data)
                         train_loss = self.loss_fn(train_output, train_target)
                         train_pred = train_output.argmax(dim=1, keepdim=True)
@@ -140,7 +138,6 @@ class GTN:
                 with _torch.no_grad():
                     learner.eval()
                     test_data, test_target = next(self.test_loader)
-                    (test_data, test_target) = _lazy(test_data, test_target, batch=0)
                     test_data, test_target= test_data.to(self.device), test_target.to(self.device)
                     test_output = learner(test_data) 
                     test_loss = self.loss_fn(test_output, test_target)
