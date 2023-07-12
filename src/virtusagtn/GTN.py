@@ -159,15 +159,16 @@ class GTN:
                     _train_metrics.reset()
                     _test_metrics.reset()
                     
+                    print(_info)
                     
                     print("E:",it//self._steps_per_epoch, 
                                 "\tB:",it%self._steps_per_epoch, 
                                 "\t Inner Metrics: ",  _info['Inner Metrics'],
-                                "  Loss: %.3f" % _info['Inner Loss'],
+                                "  Loss: ", _info['Inner Loss'],
                                 " \t Train Metrics: ", _info['Train Metrics'],
-                                "  Loss: %.3f" % _info['Train Loss'], 
+                                "  Loss: ", _info['Train Loss'], 
                                 "   \t Test Metrics: ", _info['Test Metrics'],
-                                "  Loss: %.3f" % _info['Test Loss'], 
+                                "  Loss: ", _info['Test Loss'], 
                                 "  \tIT: ",(it+1),
                                 sep=""
                                 )
