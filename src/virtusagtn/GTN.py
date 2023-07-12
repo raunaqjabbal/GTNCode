@@ -24,7 +24,7 @@ class GTN:
     def __init__(self,
         loss_fn: _typing.Callable[[_torch.Tensor, _torch.Tensor], _torch.Tensor], 
         learnerlist: _typing.List[_torch.nn.Module], 
-        metrics: _torchmetrics.MetricCollection,
+        metrics: _typing.Union[_torchmetrics.MetricCollection, _torchmetrics.Metric ],
         num_classes : int,
         batch_size: int = 4, 
         plot_steps: int = 25,
@@ -34,6 +34,8 @@ class GTN:
 
         Parameters:
             loss_fn: Loss function for the GTN training ``learnerlist``
+            
+            metrics: torchmetrics Collection or Metric
             
             learnerlist: A list of ``torch.nn.Module``
             
@@ -60,6 +62,8 @@ class GTN:
         
         for i in self.metrics.children():
             i.to(device)
+        if isinstance(self.metrics, _torchmetrics.Metric):
+            self.metrics  = _torchmetrics.MetricCollection(self.metrics).to(self.device)
         
         self.params_to_train: _typing.List[_torch.Any] 
         self._override: _typing.List[_typing.Any]
@@ -77,14 +81,18 @@ class GTN:
         model: _torch.nn.Module,
         metric: _torchmetrics.MetricCollection
         ) -> _typing.Tuple[_torch.Tensor, _typing.Any] :
+        ''' Returns loss and metric which is derived from input data and labels
+        '''
         data, target = data.to(self.device), labels.to(self.device)
         output = model(data)
         metric.update(output, target)
         inner_loss = self.loss_fn(output, target) 
         return inner_loss, metric
     
-    def _modify_metric(self, kind, metric):
-        return { kind+key: value.item() for key , value in metric.items()}
+    def _modify_metric(self, 
+                       _kind: str, 
+                       _metric: dict):
+            return { _kind+key: _np.round(value.item(),3) for key , value in _metric}
         
     
     def train(self, 
@@ -118,7 +126,7 @@ class GTN:
         _train_metrics = _deepcopy(self.metrics)
         _test_metrics = _deepcopy(self.metrics)
         
-        gtn = _pd.DataFrame()
+        df = _pd.DataFrame()
         if not _os.path.exists(self.path):
             _os.makedirs(self.path)
 
@@ -181,7 +189,7 @@ class GTN:
             _checkpoint = { 'model': _learner, 'optimizer': _inner_optim.state_dict() }
             _info["Path"] = f'{self.path}/{it}.pth'
             _torch.save(_checkpoint, _info['Path'])
-            gtn = _pd.concat([gtn, _pd.Series(_info)], ignore_index=True)
+            df = _pd.concat([df, _pd.Series(_info)], ignore_index=True)
             if (it + 1) % self.plot_steps == 0:
                 _imshow(_train_data)    
             
@@ -194,6 +202,7 @@ class GTN:
         # curriculum_data.requires_grads=False
 
         print("\n\nTotal Time Taken: ",_now-_then, "\t Average Time: ", (_now-_then)/len(self.learnerlist))
+        return df
     
     def compileoptimizer(self,
         inner_opt: _typing.Callable[[_typing.Any],_torch.optim.Optimizer] = _torch.optim.SGD, 
