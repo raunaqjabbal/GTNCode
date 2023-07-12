@@ -54,6 +54,9 @@ class GTN:
         self.inner_loop_iterations: int
         self.plot_steps = plot_steps
         self.batch_size = batch_size
+        for i in metrics.children():
+            i.to(device)
+        
         self.metrics = metrics.to(self.device)
         
         
@@ -118,7 +121,7 @@ class GTN:
         for it in range(len(self.learnerlist)):
             _learner = _deepcopy(self.learnerlist[it]).to(self.device)
             _inner_optim = self.inner_opt(_learner.parameters(), **self.inner_opt_params )
-            _info: _typing.Dict[str,_typing.Any] = {'Inner Loss':[],'Inner Accuracy':[],'Train Loss':[],'Train Accuracy':[],'Test Loss':[],'Test Accuracy':[]}
+            _info: _typing.Dict[str,_typing.Any] = {'Inner Loss':[],'Inner Metrics':[],'Train Loss':[],'Train Metrics':[],'Test Loss':[],'Test Metrics':[]}
 
             for _ in range(self.epochs):
                 
