@@ -134,7 +134,7 @@ class GTN:
         for it in range(len(self.learnerlist)):
             _learner = _deepcopy(self.learnerlist[it]).to(self.device)
             _inner_optim = self.inner_opt(_learner.parameters(), **self.inner_opt_params )
-            _info = _defaultdict(list)
+            _info: _typing.Union[_defaultdict, dict] = _defaultdict(list)
 
             for _ in range(self.epochs):
                 
@@ -165,6 +165,7 @@ class GTN:
                         _trainmetrics = self._modify_metric("Train", _train_metrics.compute())
                         _testmetrics = self._modify_metric("Test", _test_metrics.compute())
                         
+                        
                         for m in _innermetrics.keys():
                             _info[m].append(_innermetrics[m])
                         _info['InnerLoss'].append(_np.round(_inner_loss.item(),3))
@@ -184,6 +185,7 @@ class GTN:
                             "  \tIT: ",(it+1),
                             sep=""
                             )
+            _info = {key:[value] for key, value in _info.items()}
             print()
             _inner_optim.zero_grad()
             _checkpoint = { 'model': _learner, 'optimizer': _inner_optim.state_dict() }
