@@ -181,7 +181,7 @@ class GTN:
             _checkpoint = { 'model': _learner, 'optimizer': _inner_optim.state_dict() }
             _info["Path"] = f'{self.path}/{it}.pth'
             _torch.save(_checkpoint, _info['Path'])
-            gtn =gtn.append(_info) 
+            gtn = _pd.concat(gtn, _pd.Series(_info), ignore_index=True)
             if (it + 1) % self.plot_steps == 0:
                 _imshow(_train_data)    
             
