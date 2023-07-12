@@ -133,6 +133,7 @@ class GTN:
                 for _batchset in self._batches:
                     self.outer_optim.zero_grad(set_to_none=True)
                     _train_data, _train_target = next(self.train_loader)
+                    _test_data, _test_target = next(self.test_loader)
                         
                     with _higher.innerloop_ctx(_learner, _inner_optim, override = {key: [value] for key,value in zip(list(self.override_params.keys()),self._override)} ) as (_flearner, _diffopt):
                         
@@ -148,34 +149,33 @@ class GTN:
                         _learner.load_state_dict(_flearner.state_dict())
                         _inner_optim.load_state_dict(_diffopt_state_dict(_diffopt))
                         
-                with _torch.no_grad():
-                    _learner.eval()
-                    _test_data, _test_target = next(self.test_loader)
-                    _test_loss, _test_metrics = self.train_on_batch(_test_data, _test_target, _learner, _test_metrics)
-                
-                    _innermetrics = self._modify_metric("Inner", _inner_metrics.compute())
-                    _trainmetrics = self._modify_metric("Train", _train_metrics.compute())
-                    _testmetrics = self._modify_metric("Train", _test_metrics.compute())
+                    with _torch.no_grad():
+                        _learner.eval()
+                        _test_loss, _test_metrics = self.train_on_batch(_test_data, _test_target, _learner, _test_metrics)
                     
-                    for m in _innermetrics.keys():
-                        _info[m].append(_innermetrics[m])
-                    _info['InnerLoss'].append(_np.round(_inner_loss.item(),3))
-                    for m in _trainmetrics.keys():
-                        _info[m].append(_trainmetrics[m])
-                    _info['TrainLoss'].append(_np.round(_train_loss.item(),3))
-                    for m in _testmetrics.keys():
-                        _info[m].append(_testmetrics[m])
-                    _info['TestLoss'].append(_np.round(_test_loss.item(),3))
-                    _inner_metrics.reset()
-                    _train_metrics.reset()
-                    _test_metrics.reset()
-                    
-                    print("E:",it//self._steps_per_epoch, 
-                                "\tB:",it%self._steps_per_epoch, 
-                                "\t ", _info,
-                                "  \tIT: ",(it+1),
-                                sep=""
-                                )
+                        _innermetrics = self._modify_metric("Inner", _inner_metrics.compute())
+                        _trainmetrics = self._modify_metric("Train", _train_metrics.compute())
+                        _testmetrics = self._modify_metric("Test", _test_metrics.compute())
+                        
+                        for m in _innermetrics.keys():
+                            _info[m].append(_innermetrics[m])
+                        _info['InnerLoss'].append(_np.round(_inner_loss.item(),3))
+                        for m in _trainmetrics.keys():
+                            _info[m].append(_trainmetrics[m])
+                        _info['TrainLoss'].append(_np.round(_train_loss.item(),3))
+                        for m in _testmetrics.keys():
+                            _info[m].append(_testmetrics[m])
+                        _info['TestLoss'].append(_np.round(_test_loss.item(),3))
+                        _inner_metrics.reset()
+                        _train_metrics.reset()
+                        _test_metrics.reset()
+                        
+                        print("E:",it//self._steps_per_epoch, 
+                                    "\tB:",it%self._steps_per_epoch, 
+                                    "\t ", _info.items(),
+                                    "  \tIT: ",(it+1),
+                                    sep=""
+                                    )
             print()
             _inner_optim.zero_grad()
             _checkpoint = { 'model': _learner, 'optimizer': _inner_optim.state_dict() }
