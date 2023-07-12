@@ -23,7 +23,7 @@ class GTN:
     def __init__(self,
         loss_fn: _typing.Callable[[_torch.Tensor, _torch.Tensor], _torch.Tensor], 
         learnerlist: _typing.List[_torch.nn.Module], 
-        metrics: _typing.Any,
+        metrics: _torchmetrics.MetricCollection,
         num_classes : int,
         batch_size: int = 4, 
         plot_steps: int = 25,
@@ -54,7 +54,7 @@ class GTN:
         self.inner_loop_iterations: int
         self.plot_steps = plot_steps
         self.batch_size = batch_size
-        self.metrics = metrics 
+        self.metrics = metrics.to(self.device)
         
         
         self.params_to_train: _typing.List[_torch.Any] 
@@ -71,7 +71,7 @@ class GTN:
         data: _torch.Tensor, 
         labels: _torch.Tensor, 
         model: _torch.nn.Module,
-        metric: _typing.Any
+        metric: _torchmetrics.MetricCollection
         ) -> _typing.Tuple[_torch.Tensor, _typing.Any] :
         data, target = data.to(self.device), labels.to(self.device)
         output = model(data)
