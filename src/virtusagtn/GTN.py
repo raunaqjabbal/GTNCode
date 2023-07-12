@@ -83,10 +83,10 @@ class GTN:
         ) -> _typing.Tuple[_torch.Tensor, _typing.Any] :
         ''' Returns loss and metric which is derived from input data and labels
         '''
-        data, target = data.to(self.device), labels.to(self.device)
+        data, labels = data.to(self.device), labels.to(self.device)
         output = model(data)
-        metric.update(output, target)
-        inner_loss = self.loss_fn(output, target) 
+        metric.update(output, labels)
+        inner_loss = self.loss_fn(output, labels) 
         return inner_loss, metric
     
     def _modify_metric(self, 
