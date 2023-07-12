@@ -170,18 +170,18 @@ class GTN:
                         _train_metrics.reset()
                         _test_metrics.reset()
                         
-                        print("E:",it//self._steps_per_epoch, 
-                                    "\tB:",it%self._steps_per_epoch, 
-                                    "\t ", _info.items(),
-                                    "  \tIT: ",(it+1),
-                                    sep=""
-                                    )
+                print("E:",it//self._steps_per_epoch, 
+                            "\tB:",it%self._steps_per_epoch, 
+                            "\t ", {key:value[-1] for key, value in _info.items()},
+                            "  \tIT: ",(it+1),
+                            sep=""
+                            )
             print()
             _inner_optim.zero_grad()
             _checkpoint = { 'model': _learner, 'optimizer': _inner_optim.state_dict() }
             _info["Path"] = f'{self.path}/{it}.pth'
             _torch.save(_checkpoint, _info['Path'])
-            gtn = _pd.concat(gtn, _pd.Series(_info), ignore_index=True)
+            gtn = _pd.concat([gtn, _pd.Series(_info)], ignore_index=True)
             if (it + 1) % self.plot_steps == 0:
                 _imshow(_train_data)    
             
