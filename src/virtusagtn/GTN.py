@@ -10,6 +10,7 @@ import os as _os
 from copy import deepcopy as _deepcopy
 import numpy as _np
 import gc as _gc
+import collections.defaultdict as _defaultdict # type: ignore
 
 from .utils import _diffopt_state_dict, _divide_chunks, _imshow, _cycle
 import higher as _higher        # type: ignore
@@ -82,6 +83,10 @@ class GTN:
         inner_loss = self.loss_fn(output, target) 
         return inner_loss, metric
     
+    def _modify_metric(self, kind, metric):
+        return { kind+key: value.item() for key , value in metric.items()}
+        
+    
     def train(self, 
         train_loader: _typing.Collection[_torch.Tensor], 
         test_loader: _typing.Collection[_torch.Tensor],
@@ -113,7 +118,7 @@ class GTN:
         _train_metrics = _deepcopy(self.metrics)
         _test_metrics = _deepcopy(self.metrics)
         
-        gtn = _pd.DataFrame(columns= ('Path','Inner Loss','Inner Metrics','Train Loss','Train Metrics','Test Loss','Test Metrics'))
+        gtn = _pd.DataFrame()
         if not _os.path.exists(self.path):
             _os.makedirs(self.path)
 
@@ -121,7 +126,7 @@ class GTN:
         for it in range(len(self.learnerlist)):
             _learner = _deepcopy(self.learnerlist[it]).to(self.device)
             _inner_optim = self.inner_opt(_learner.parameters(), **self.inner_opt_params )
-            _info: _typing.Dict[str,_typing.Any] = {'Inner Loss':[],'Inner Metrics':[],'Train Loss':[],'Train Metrics':[],'Test Loss':[],'Test Metrics':[]}
+            _info = _defaultdict(list)
 
             for _ in range(self.epochs):
                 
@@ -148,37 +153,35 @@ class GTN:
                     _test_data, _test_target = next(self.test_loader)
                     _test_loss, _test_metrics = self.train_on_batch(_test_data, _test_target, _learner, _test_metrics)
                 
+                    _innermetrics = self._modify_metric("Inner", _inner_metrics.compute()[0])
+                    _trainmetrics = self._modify_metric("Train", _inner_metrics.compute()[0])
+                    _testmetrics = self._modify_metric("Train", _inner_metrics.compute()[0])
                     
-                    _info['Inner Metrics'].append(_inner_metrics.compute())
+                    for m in _innermetrics.keys():
+                        _info[m].append(_innermetrics[m])
                     _info['Inner Loss'].append(_np.round(_inner_loss.item(),3))
-                    _info['Train Metrics'].append(_train_metrics.compute())
+                    for m in _trainmetrics.keys():
+                        _info[m].append(_trainmetrics[m])
                     _info['Train Loss'].append(_np.round(_train_loss.item(),3))
-                    _info['Test Metrics'].append(_test_metrics.compute())
+                    for m in _testmetrics.keys():
+                        _info[m].append(_testmetrics[m])
                     _info['Test Loss'].append(_np.round(_test_loss.item(),3))
                     _inner_metrics.reset()
                     _train_metrics.reset()
                     _test_metrics.reset()
                     
-                    print(_info)
-                    
                     print("E:",it//self._steps_per_epoch, 
                                 "\tB:",it%self._steps_per_epoch, 
-                                "\t Inner Metrics: ",  _info['Inner Metrics'],
-                                "  Loss: ", _info['Inner Loss'],
-                                " \t Train Metrics: ", _info['Train Metrics'],
-                                "  Loss: ", _info['Train Loss'], 
-                                "   \t Test Metrics: ", _info['Test Metrics'],
-                                "  Loss: ", _info['Test Loss'], 
+                                "\t ", _info,
                                 "  \tIT: ",(it+1),
                                 sep=""
                                 )
-                            
             print()
             _inner_optim.zero_grad()
             _checkpoint = { 'model': _learner, 'optimizer': _inner_optim.state_dict() }
             _info["Path"] = f'{self.path}/{it}.pth'
             _torch.save(_checkpoint, _info['Path'])
-            gtn.loc[it] = _info
+            gtn =gtn.append(_info) 
             if (it + 1) % self.plot_steps == 0:
                 _imshow(_train_data)    
             
