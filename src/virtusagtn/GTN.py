@@ -2,6 +2,7 @@ import torch as _torch
 import torch.nn as _nn
 import torch.optim as _optim
 from torch import Tensor
+import torchmetrics as _torchmetrics
 
 import time as _time
 import pandas as _pd            # type: ignore
@@ -22,11 +23,11 @@ class GTN:
     def __init__(self,
         loss_fn: _typing.Callable[[_torch.Tensor, _torch.Tensor], _torch.Tensor], 
         learnerlist: _typing.List[_torch.nn.Module], 
+        metrics: _typing.Any,
         num_classes : int,
         batch_size: int = 4, 
         plot_steps: int = 25,
         device: _typing.Optional[_torch.device] = None, 
-        #    metrics,
         ) -> None:
         r""" Initializes the structure of the GTN
 
@@ -53,7 +54,7 @@ class GTN:
         self.inner_loop_iterations: int
         self.plot_steps = plot_steps
         self.batch_size = batch_size
-        # self.metrics = metrics 
+        self.metrics = metrics 
         
         
         self.params_to_train: _typing.List[_torch.Any] 
@@ -67,17 +68,16 @@ class GTN:
         self.noise_size: int
         
     def train_on_batch(self, 
-        data, 
-        labels, 
-        model):
+        data: _torch.Tensor, 
+        labels: _torch.Tensor, 
+        model: _torch.nn.Module,
+        metric: _typing.Any
+        ) -> _typing.Tuple[_torch.Tensor, _typing.Any] :
         data, target = data.to(self.device), labels.to(self.device)
         output = model(data)
-        pred = output.argmax(dim=1, keepdim=True) 
-        accuracy = _np.round(pred.eq(target.view_as(pred)).sum().item() / len(target) * 100, 2)
+        metric.update(output, target)
         inner_loss = self.loss_fn(output, target) 
-        return inner_loss, accuracy
-    
-        
+        return inner_loss, metric
     
     def train(self, 
         train_loader: _typing.Collection[_torch.Tensor], 
@@ -106,8 +106,11 @@ class GTN:
         self.train_loader = iter(_cycle(train_loader))
         self.test_loader  = iter(_cycle(test_loader)) 
 
+        _inner_metrics = _deepcopy(self.metrics)
+        _train_metrics = _deepcopy(self.metrics)
+        _test_metrics = _deepcopy(self.metrics)
         
-        gtn = _pd.DataFrame(columns= ('Path','Inner Loss','Inner Accuracy','Train Loss','Train Accuracy','Test Loss','Test Accuracy'))
+        gtn = _pd.DataFrame(columns= ('Path','Inner Loss','Inner Metrics','Train Loss','Train Metrics','Test Loss','Test Metrics'))
         if not _os.path.exists(self.path):
             _os.makedirs(self.path)
 
@@ -115,7 +118,7 @@ class GTN:
         for it in range(len(self.learnerlist)):
             _learner = _deepcopy(self.learnerlist[it]).to(self.device)
             _inner_optim = self.inner_opt(_learner.parameters(), **self.inner_opt_params )
-            _metrics: _typing.Dict[str,_typing.Any] = {'Inner Loss':[],'Inner Accuracy':[],'Train Loss':[],'Train Accuracy':[],'Test Loss':[],'Test Accuracy':[]}
+            _info: _typing.Dict[str,_typing.Any] = {'Inner Loss':[],'Inner Accuracy':[],'Train Loss':[],'Train Accuracy':[],'Test Loss':[],'Test Accuracy':[]}
 
             for _ in range(self.epochs):
                 
@@ -127,10 +130,10 @@ class GTN:
                         
                         for step in _batchset:
                             _inner_data, _inner_target = self.get_innerloop_data(step)
-                            _inner_loss, _inner_accuracy = self.train_on_batch(_inner_data, _inner_target, _flearner)
+                            _inner_loss, _inner_metrics = self.train_on_batch(_inner_data, _inner_target, _flearner, _inner_metrics)
                             _diffopt.step(_inner_loss)
                         
-                        _train_loss, _train_accuracy = self.train_on_batch(_train_data, _train_target, _flearner)
+                        _train_loss, _train_metrics = self.train_on_batch(_train_data, _train_target, _flearner, _train_metrics)
                         _train_loss.backward()
                         self.outer_optim.step()
 
@@ -140,34 +143,38 @@ class GTN:
                 with _torch.no_grad():
                     _learner.eval()
                     _test_data, _test_target = next(self.test_loader)
-                    _test_loss, _test_accuracy = self.train_on_batch(_test_data, _test_target, _learner)
-
+                    _test_loss, _test_metrics = self.train_on_batch(_test_data, _test_target, _learner, _test_metrics)
+                
                     
-                    _metrics["Inner Accuracy"].append(_inner_accuracy)
-                    _metrics["Inner Loss"].append(_np.round(_inner_loss.item(),3))
-                    _metrics["Train Accuracy"].append(_train_accuracy)
-                    _metrics["Train Loss"].append(_np.round(_train_loss.item(),3))
-                    _metrics["Test Accuracy"].append(_test_accuracy)
-                    _metrics["Test Loss"].append(_np.round(_test_loss.item(),3))
-
-                print("E:",it//self._steps_per_epoch, 
-                            "\tB:",it%self._steps_per_epoch, 
-                            "\t Inner Acc: %5.2f" % _inner_accuracy, "%",
-                            "  Loss: %.3f" % _np.round(_inner_loss.item(),3),
-                            " \t Train Acc: %5.2f" % _train_accuracy, "%",
-                            "  Loss: %.3f" % _np.round(_train_loss.item(),3), 
-                            "   \t Test Acc: %5.2f" % _test_accuracy, "%",
-                            "  Loss: %.3f" % _np.round(_test_loss.item(),3), 
-                            "  \tIT: ",(it+1),
-                            sep=""
-                            )
-                        
-            # print()
+                    _info["Inner Metrics"].append(_inner_metrics.compute())
+                    _info["Inner Loss"].append(_np.round(_inner_loss.item(),3))
+                    _info["Train Metrics"].append(_train_metrics.compute())
+                    _info["Train Loss"].append(_np.round(_train_loss.item(),3))
+                    _info["Test Metrics"].append(_test_metrics.compute())
+                    _info["Test Loss"].append(_np.round(_test_loss.item(),3))
+                    _inner_metrics.reset()
+                    _train_metrics.reset()
+                    _test_metrics.reset()
+                    
+                    
+                    print("E:",it//self._steps_per_epoch, 
+                                "\tB:",it%self._steps_per_epoch, 
+                                "\t Inner Metrics: %5.2f" % _info['Inner Metrics'], "%",
+                                "  Loss: %.3f" % _info['Inner Loss'],
+                                " \t Train Metrics: %5.2f" % _info['Train Metrics'], "%",
+                                "  Loss: %.3f" % _info['Train Loss'], 
+                                "   \t Test Metrics: %5.2f" % _info['Test Metrics'], "%",
+                                "  Loss: %.3f" % _info['Test Loss'], 
+                                "  \tIT: ",(it+1),
+                                sep=""
+                                )
+                            
+            print()
             _inner_optim.zero_grad()
             _checkpoint = { 'model': _learner, 'optimizer': _inner_optim.state_dict() }
-            _metrics["Path"] = f'{self.path}/{it}.pth'
-            _torch.save(_checkpoint, _metrics['Path'])
-            gtn.loc[it] = _metrics
+            _info["Path"] = f'{self.path}/{it}.pth'
+            _torch.save(_checkpoint, _info['Path'])
+            gtn.loc[it] = _info
             if (it + 1) % self.plot_steps == 0:
                 _imshow(_train_data)    
             
