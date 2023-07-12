@@ -10,7 +10,7 @@ import os as _os
 from copy import deepcopy as _deepcopy
 import numpy as _np
 import gc as _gc
-import collections.defaultdict as _defaultdict # type: ignore
+from collections import defaultdict as _defaultdict # type: ignore
 
 from .utils import _diffopt_state_dict, _divide_chunks, _imshow, _cycle
 import higher as _higher        # type: ignore
