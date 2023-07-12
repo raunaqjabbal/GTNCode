@@ -16,7 +16,8 @@ To install virtusagtn:
 -  [x] Linting
 
 
-
+-  [ ] Restructure optimizer compile
+-  [ ] shorten train code
 -  [ ] Restructure diffopt parameters
 -  [ ] Improve Step 1 & 2 of GTN
 -  [ ] Add support for metrics
