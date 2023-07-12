@@ -24,7 +24,6 @@ class GTN:
         loss_fn: _typing.Callable[[_torch.Tensor, _torch.Tensor], _torch.Tensor], 
         learnerlist: _typing.List[_torch.nn.Module], 
         num_classes : int,
-        inner_loop_iterations: int = 32,  
         batch_size: int = 4, 
         plot_steps: int = 25,
         device: _typing.Optional[_torch.device] = None, 
@@ -38,9 +37,7 @@ class GTN:
             learnerlist: A list of ``torch.nn.Module``
             
             num_classes: Number of classes in the data
-            
-            inner_loop_iterations: Number of inner loop steps
-            
+                        
             batch_size: Number of ``inner_loop_steps`` to run before training on ``train_data``  
             
             plot_steps: Number of trained models after which learned data is printed
@@ -56,12 +53,11 @@ class GTN:
         self.loss_fn = loss_fn
         
         self.num_classes = num_classes
-        self.inner_loop_iterations = inner_loop_iterations
+        self.inner_loop_iterations: int
         self.plot_steps = plot_steps
         self.batch_size = batch_size
         # self.metrics = metrics 
         
-        self.batches = list(_divide_chunks(_np.arange(inner_loop_iterations), self.batch_size))
         
         self.params_to_train: _typing.List[_torch.Any] 
         self.override: _typing.List[_typing.Any]
@@ -92,7 +88,8 @@ class GTN:
             history: Pandas DataFrame consisting of the history and paths to learners 
         """
         self.compileoptimizer()
-        
+        self.batches = list(_divide_chunks(_np.arange(self.inner_loop_iterations), self.batch_size))
+
         self.epochs = epochs
         self.path = path
 
@@ -170,7 +167,7 @@ class GTN:
                                 sep=""
                                 )
                             
-                        
+            print()
             inner_optim.zero_grad()
             checkpoint = { 'model': learner, 'optimizer': inner_optim.state_dict() }
             metrics["Path"] = f'{self.path}/{it}.pth'
@@ -178,7 +175,6 @@ class GTN:
             gtn.loc[it] = metrics
             if (it + 1) % self.plot_steps == 0:
                 _imshow(train_data)    
-            print()
             
         del train_loss, inner_loss, test_loss, train_data, inner_data, test_data, learner, inner_optim
         _gc.collect()
@@ -234,11 +230,13 @@ class TeacherGTN(GTN):
         outer_opt: _typing.Callable[ [_typing.Any],_torch.optim.Optimizer] = _torch.optim.Adam, 
         outer_opt_params: _typing.Dict[str,_typing.Any] = {'lr':0.01, 'betas': (0.9,0.9)},
         
+        inner_loop_iterations:int = 32,
         use_curriculum: bool = True, 
         noise_size: _typing.Optional[int] = 128, 
         inner_batch_size: _typing.Optional[int] = 128,  
         teacher_noise: _torch.Tensor = None
         ) -> None:
+        
         #   teacher = _nn.DataParallel(teacher, device_ids=list(range(_torch.cuda.device_count())))
         
         """ Prepares flow of data and optimizer for Teacher GTN learning
@@ -270,18 +268,19 @@ class TeacherGTN(GTN):
         self.inner_opt_params = inner_opt_params
         self.params_to_train=[]
         
-        
         self.use_curriculum = use_curriculum
         self.params_to_train += list(teacher.parameters())
         self.teacher = teacher.to(self.device)
         self.inner_batch_size = inner_batch_size
         
         if isinstance(teacher_noise, _torch.Tensor):
+            self.inner_loop_iterations = int(teacher_noise.shape[0])
             self.teacher_noise = _nn.Parameter(teacher_noise, requires_grad=True) 
             self.params_to_train += [self.teacher_noise]
             self.use_curriculum == True
             
         elif self.use_curriculum == True:
+            self.inner_loop_iterations = inner_loop_iterations
             self.teacher_noise = _nn.Parameter(_torch.randn(self.inner_loop_iterations, inner_batch_size ,noise_size), requires_grad=True) 
             self.params_to_train += [self.teacher_noise]
         
@@ -307,7 +306,7 @@ class TeacherGTN(GTN):
    
 class DataGTN(GTN):
     def compile(self, 
-        data: _typing.Collection[_torch.Tensor],
+        curriculum_loader: _typing.Collection[_torch.Tensor],
         inner_opt: _typing.Callable[[_typing.Any],_torch.optim.Optimizer] = _torch.optim.SGD, 
         inner_opt_params: _typing.Dict[str,_typing.Any] = {'lr':0.01}, 
         override_params: _typing.Dict[str,_typing.Any] = {'lr': 0.02, 'momentum':0.9}, 
@@ -341,8 +340,8 @@ class DataGTN(GTN):
         self.inner_opt_params = inner_opt_params
         self.params_to_train=[]
         
-        
-        self.curriculum_loader  = iter(_cycle(data)) 
+        self.inner_loop_iterations = len(curriculum_loader)
+        self.curriculum_loader  = iter(_cycle(curriculum_loader)) 
 
         curriculum_data=[]
         curriculum_labels = []
