@@ -19,7 +19,7 @@ pip install git+https://github.com/raunaqjabbal/GTNCode.git
 -  [x] General Code Conversion
 -  [x] Add GPU support
 -  [x] Linting
--  [x] Remove ``inner_loop_iterations''
+-  [x] Remove ``inner_loop_iterations``
 -  [x] Restructure optimizer compile
 -  [x] Add support for metrics
 -  [x] Give clarification on internal variables
