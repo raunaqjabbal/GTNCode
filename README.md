@@ -11,7 +11,7 @@ pip install git+https://github.com/raunaqjabbal/GTNCode.git
 # GenerativeTeachingNetwork
 
 ## Done:
--  [x]  Better utility and image showing functions
+-  [x] Better utility and image showing functions
 -  [x] Make dataloaders iterable
 -  [x] Make curriculum iterable
 -  [x] Make Learner Flexible 
@@ -23,10 +23,12 @@ pip install git+https://github.com/raunaqjabbal/GTNCode.git
 -  [x] Restructure optimizer compile
 -  [x] Add support for metrics
 -  [x] Give clarification on internal variables
--  [x] shorten train code
+-  [x] Shorten train code
+-  [x] Support with MpPy and Flake8
+
 
 ## To-Do:
--  [ ] verify Teacher code
+-  [ ] Verify Teacher code
 -  [x] Restructure diffopt parameters
 -  [x] Improve Step 1 & 2 of GTN
 

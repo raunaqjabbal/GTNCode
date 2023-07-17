@@ -11,7 +11,7 @@ class Teacher2(_nn.Module):
     output data of shape similar to actual data.
     '''
     def __init__(self,
-                 img_size: _typing.Union[_np.typing.NDArray[_np.uint8], _typing.List[int]],
+                 img_size: _typing.List[int],
                  num_classes: int,
                  noise_size: int = 128):
         '''
@@ -58,7 +58,7 @@ class Teacher1(_nn.Module):
     output data of shape similar to actual data.
     '''
     def __init__(self,
-                 img_size: _typing.Union[_np.typing.NDArray[_np.uint8], _typing.List[int]],
+                 img_size:  _typing.List[int],
                  num_classes: int,
                  noise_size: int = 128):
         '''
@@ -108,10 +108,10 @@ class Learner(_nn.Module):
     ''' Sample Learner Module that provides a random CNN architecture.
     '''
     def __init__(self,
-                 img_size: _typing.Union[_np.typing.NDArray[_np.uint8], _typing.List[int]],
+                 img_size:  _typing.List[int],
                  num_classes: int,
-                 cnn_filters: _typing.Union[_typing.List[int], _np.typing.NDArray[_np.uint8], None] = None,
-                 linear_filters: _typing.Union[_typing.List[int], _np.typing.NDArray[_np.uint8], None] = None):
+                 cnn_filters: _typing.Union[_typing.List[int], None] = None,
+                 linear_filters: _typing.Union[_typing.List[int], None] = None):
         ''' Learner model.
         Parameters:
             img_size: tuple of (channels, height, width)
