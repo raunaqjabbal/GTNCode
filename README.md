@@ -26,7 +26,7 @@ pip install git+https://github.com/raunaqjabbal/GTNCode.git
 -  [x] shorten train code
 
 ## To-Do:
--  [ ] verify techer code
+-  [ ] verify Teacher code
 -  [x] Restructure diffopt parameters
 -  [x] Improve Step 1 & 2 of GTN
 
