@@ -64,8 +64,6 @@ class GTN:
         self.inner_opt: _typing.Callable[[_typing.Any], _torch.optim.Optimizer]  # Reference to an optimizer
         self.inner_opt_params: _typing.Optional[_typing.Dict[str, _typing.Any]]
 
-        self.noise_size: int
-
     def train_on_batch(self,
                        data: _torch.Tensor,
                        labels: _torch.Tensor,
@@ -228,71 +226,11 @@ class GTN:
         raise Exception("Function needs to be overridden in child class.")
 
 
-class TeacherGTN(GTN):
-    """ Implements a GTN with a Teacher model
-    """
-    def compile(self,
-                teacher: _torch.nn.Module,
-                inner_loop_iterations: int = 32,
-                use_curriculum: bool = True,
-                noise_size: int = 128,  # TODO
-                inner_batch_size: int = 128,
-                teacher_noise: _typing.Optional[_torch.Tensor] = None
-                ) -> None:
-        #   teacher = _nn.DataParallel(teacher, device_ids=list(range(_torch.cuda.device_count())))
-
-        """ Prepares flow of data and optimizer for Teacher GTN learning
-            Calls parent class function ``compileoptimizer()`` for initializing optimizers
-        Parameters:
-            teacher: Teacher that takes in ``noise`` and outputs data that will be used by Learners
-            inner_loop_iterations: Number of inner loop iterations
-            use_curriculum: If ``True``, use a trainable curriculum, else generate random data for the Teacher
-            noise_size: dim of noise that the ``teacher`` will accept
-            teacher_noise: Directly provide teacher noise
-        Returns:
-            None
-        """
-        self.params_to_train = []
-
-        self.use_curriculum = use_curriculum
-        self.params_to_train += list(teacher.parameters())
-        self.teacher = teacher.to(self.device)
-        self.inner_batch_size = inner_batch_size
-
-        if isinstance(teacher_noise, _torch.Tensor):
-            self.inner_loop_iterations = int(teacher_noise.shape[0])
-            self.teacher_noise = _nn.Parameter(teacher_noise, requires_grad=True)
-            self.params_to_train += [self.teacher_noise]
-            self.use_curriculum = True
-
-        elif self.use_curriculum is True:
-            self.inner_loop_iterations = inner_loop_iterations
-            self.teacher_noise = _nn.Parameter(_torch.randn(self.inner_loop_iterations, inner_batch_size, noise_size), requires_grad=True)
-            self.params_to_train += [self.teacher_noise]
-
-        self.teacher_labels = _torch.arange(self.inner_batch_size) % self.num_classes
-        self.one_hot = _nn.functional.one_hot(self.teacher_labels, self.num_classes)
-
-    def get_innerloop_data(self, step) -> _typing.Tuple[_torch.Tensor, _torch.Tensor]:
-        """ Called during training to feed data to Learner
-        Parameters:
-            step: current inner loop iteration number
-        Returns:
-           Data and labels for training in a list
-        """
-        if self.use_curriculum is True:
-            z_vec = self.teacher_noise[step]
-        else:
-            z_vec = _torch.randn(self.inner_batch_size, self.noise_size).to(self.device)
-        return self.teacher(z_vec.to(self.device), self.one_hot.to(self.device)), self.teacher_labels
-
-
 class DataGTN(GTN):
     def compile(self,
                 curriculum_loader: _typing.Collection[_torch.Tensor]
                 ):
         """ Initializes parameters for Data GTN learning
-            Calls parent class function ``compileoptimizer()`` for initializing optimizers
         Parameters:
             data: PyTorch DataLoader (or iterable) containing synthetic data for Learner training
         Returns:
@@ -326,3 +264,87 @@ class DataGTN(GTN):
         """
 
         return self.curriculum_data[step], self.curriculum_labels[step]
+
+
+class CurriculumTeacherGTN(GTN):
+    """ Implements a GTN with a Teacher model
+    """
+    def compile(self,
+                teacher: _torch.nn.Module,
+                teacher_noise: _torch.Tensor
+                ) -> None:
+        #   teacher = _nn.DataParallel(teacher, device_ids=list(range(_torch.cuda.device_count())))
+
+        """ Prepares flow of data and optimizer for Teacher GTN learning
+        Parameters:
+            teacher: Teacher that takes in ``noise`` and outputs data that will be used by Learners
+            teacher_noise: Noise to be used by the Teacher in the shape of ``(num_iterations, batch_size, teacher_input)``
+        Returns:
+            None
+        """
+        self.params_to_train = []
+
+        self.teacher = teacher.to(self.device)
+        self.params_to_train += list(self.teacher.parameters())
+        self.teacher_noise = teacher_noise
+        self.noise_size = self.teacher_noise.shape[2:]
+        self.inner_batch_size = self.teacher_noise.shape[1]
+        self.inner_loop_iterations = self.teacher_noise.shape[0]
+
+        self.params_to_train += [self.teacher_noise]
+        self.teacher_labels = _torch.arange(self.inner_batch_size) % self.num_classes
+        self.one_hot = _nn.functional.one_hot(self.teacher_labels, self.num_classes)
+
+    def get_innerloop_data(self, step) -> _typing.Tuple[_torch.Tensor, _torch.Tensor]:
+        """ Called during training to feed data to Learner
+        Parameters:
+            step: current inner loop iteration number
+        Returns:
+           Data and labels for training in a list
+        """
+        z_vec = self.teacher_noise[step]
+        return self.teacher(z_vec.to(self.device), self.one_hot.to(self.device)), self.teacher_labels
+
+
+class RandomTeacherGTN(GTN):
+    """ Implements a GTN with a Teacher model
+    """
+    def compile(self,
+                teacher: _torch.nn.Module,
+                inner_loop_iterations: int = 32,
+                noise_size: _typing.List[int] = [128],
+                inner_batch_size: int = 128,
+                ) -> None:
+        #   teacher = _nn.DataParallel(teacher, device_ids=list(range(_torch.cuda.device_count())))
+
+        """ Prepares flow of data and optimizer for Teacher GTN learning
+        Parameters:
+            teacher: Teacher that takes in ``noise`` and outputs data that will be used by Learners
+            inner_loop_iterations: Number of inner loop iterations
+            noise_size: dim of noise that the ``teacher`` will accept
+            teacher_noise: Directly provide teacher noise
+        Returns:
+            None
+        """
+        self.params_to_train = []
+
+        self.inner_batch_size = inner_batch_size
+        self.inner_loop_iterations = inner_loop_iterations
+        self.noise_size = noise_size
+
+        self.teacher = teacher.to(self.device)
+        self.params_to_train += list(self.teacher.parameters())
+        self.teacher_labels = _torch.arange(self.inner_batch_size) % self.num_classes
+        self.one_hot = _nn.functional.one_hot(self.teacher_labels, self.num_classes)
+
+    def get_innerloop_data(self, step) -> _typing.Tuple[_torch.Tensor, _torch.Tensor]:
+        """ Called during training to feed data to Learner
+        Parameters:
+            step: current inner loop iteration number
+        Returns:
+           Data and labels for training in a list
+        """
+
+        z_vec = _torch.randn([self.inner_batch_size]+self.noise_size).to(self.device)
+        return self.teacher(z_vec.to(self.device), self.one_hot.to(self.device)), self.teacher_labels
+    
