@@ -347,4 +347,3 @@ class RandomTeacherGTN(GTN):
 
         z_vec = _torch.randn([self.inner_batch_size]+self.noise_size).to(self.device)
         return self.teacher(z_vec.to(self.device), self.one_hot.to(self.device)), self.teacher_labels
-    
