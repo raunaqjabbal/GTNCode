@@ -177,7 +177,7 @@ class GTN:
             _torch.save(_checkpoint, _info['Path'])
             df = _pd.concat([df, _pd.DataFrame(_info)], ignore_index=True)
             if (it + 1) % self.plot_steps == 0:
-                _imshow(_train_data)
+                _imshow(_inner_data)
 
         del _train_loss, _inner_loss, _test_loss, _train_data, _inner_data, _test_data, _learner, _inner_optim
         _gc.collect()
